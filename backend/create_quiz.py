@@ -15,6 +15,7 @@ SCOPES = [
 # 2. YOUR EMAIL: The robot needs to know who to share the form with.
 # ⚠️ REPLACE THIS WITH YOUR ACTUAL EMAIL ADDRESS
 USER_EMAIL = "utkarshmalik088@gmail.com"  # Example: "john.doe@gmail.com"
+FOLDER_ID = "https://drive.google.com/drive/folders/1vmg5rrYVFu1OROeEu9stSgqfwy0QIJ0K"
 
 SERVICE_ACCOUNT_FILE = "service_account.json"
 
@@ -92,35 +93,25 @@ def json_to_forms_requests(quiz_data):
     return requests
 
 def create_quiz(title, questions):
-    """Main function to create, populate, and share the quiz."""
     try:
         form_service, drive_service = get_authenticated_services()
 
-        # Step A: Create a blank form
-        print(f"🤖 Creating form: '{title}'...")
+        # A. Create the form
         form_body = {"info": {"title": title, "documentTitle": title}}
         form = form_service.forms().create(body=form_body).execute()
-        
         form_id = form["formId"]
-        form_url = form["responderUri"]
-        # The URL needed for you to EDIT the form (not just fill it out)
-        edit_url = f"https://docs.google.com/forms/d/{form_id}/edit"
 
-        # Step B: Share the form with YOU (The Human)
-        print(f"🤝 Sharing form {form_id} with {USER_EMAIL}...")
-        try:
-            drive_service.permissions().create(
-                fileId=form_id,
-                body={
-                    "type": "user",
-                    "role": "writer",  # "writer" = Editor permission
-                    "emailAddress": USER_EMAIL
-                },
-                fields="id"
-            ).execute()
-        except HttpError as e:
-            print(f"⚠️ Warning: Could not share file. Error: {e}")
-            # We continue anyway, because the form WAS created.
+        # B. MOVE it to the specific folder (This fixes the 500 error)
+        # We move it from 'root' to your shared folder
+        file = drive_service.files().get(fileId=form_id, fields='parents').execute()
+        previous_parents = ",".join(file.get('parents'))
+        
+        drive_service.files().update(
+            fileId=form_id,
+            addParents=FOLDER_ID,
+            removeParents=previous_parents,
+            fields='id, parents'
+        ).execute()
         
         # Step C: Add Questions to the Form
         if questions:

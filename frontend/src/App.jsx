@@ -74,7 +74,9 @@ export default function App() {
   };
 
   // --- 4. EDITOR ACTIONS ---
-  const handlePublish = async () => {
+  const handlePublish = async (e) => {
+    e.preventDefault();
+    alert("Publishing...");
     setLoading(true);
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";

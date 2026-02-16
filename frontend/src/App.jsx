@@ -75,16 +75,50 @@ export default function App() {
 
   // --- 4. EDITOR ACTIONS ---
   const handlePublish = async (e) => {
-    e.preventDefault();
-    alert("Publishing...");
-    setLoading(true);
-    try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      const res = await axios.post(`${API_URL}/publish-quiz`, payload);
-      setFormUrl(res.data.form_url);
-      setStep(3);
-    } catch (err) { alert("Publishing Error"); } finally { setLoading(false); }
-  };
+  if (e) e.preventDefault(); // Stop page reload
+  
+  console.log("--------------------------------");
+  console.log("🟢 STEP 1: Function Started");
+  
+  // CHECK 1: Is axios imported?
+  try {
+    console.log("🟢 STEP 2: Axios is", axios ? "Working" : "MISSING");
+  } catch (err) {
+    console.error("🔴 CRASH AT STEP 2: Axios is not imported!");
+    alert("CRASH: Add 'import axios from \"axios\";' to the top of the file!");
+    return;
+  }
+
+  // CHECK 2: Is the data ready?
+  console.log("🟢 STEP 3: Checking Data...");
+  console.log("   - Title:", title);
+  console.log("   - API_URL:", API_URL);
+  console.log("   - QuizData Length:", quizData ? quizData.length : "UNDEFINED");
+
+  if (!quizData || quizData.length === 0) {
+    console.error("🔴 CRASH AT STEP 3: No questions to publish!");
+    alert("Error: The quiz is empty. Add some questions first.");
+    return;
+  }
+
+  // CHECK 3: The Network Request
+  console.log("🟢 STEP 4: Attempting Network Request to:", `${API_URL}/publish-quiz`);
+  
+  setLoading(true);
+  try {
+    const payload = { title: title || "Untitled Quiz", questions: quizData };
+    const res = await axios.post(`${API_URL}/publish-quiz`, payload);
+    
+    console.log("🟢 STEP 5: Success!", res.data);
+    setFormUrl(res.data.form_url);
+    setStep(3);
+  } catch (err) {
+    console.error("🔴 CRASH AT STEP 5 (Network Error):", err);
+    alert(`Network Error: ${err.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const updateQ = (i, field, val) => {
     const copy = [...quizData];

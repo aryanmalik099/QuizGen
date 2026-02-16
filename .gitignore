@@ -8,7 +8,7 @@ venv/
 credentials.json
 token.json
 client_secret_*.json
-service_account.json
+backend/service_account.json
 
 # Node Modules (Too big to commit)
 node_modules/

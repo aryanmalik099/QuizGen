@@ -163,7 +163,7 @@ export default function App() {
               <div className="flex gap-2">
                  <button onClick={() => setQuizData([])} className="p-2 text-slate-400 hover:text-red-500 transition" title="Clear All"><Trash2 className="h-5 w-5" /></button>
                  <button onClick={handlePublish} disabled={loading} className="rounded-xl bg-indigo-600 px-6 py-2.5 font-bold text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 active:scale-95 transition">
-                  {loading ? <Loader2 className="animate-spin" /> : 'Publish'}
+                  {loading ? <Loader2 className="animate-spin" /> : 'Publish Quiz'}
                 </button>
               </div>
             </div>

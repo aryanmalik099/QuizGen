@@ -1,0 +1,15 @@
+# Python System Files
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Google Secrets (NEVER COMMIT THESE)
+credentials.json
+token.json
+client_secret_*.json
+
+# Node Modules (Too big to commit)
+node_modules/
+dist/
+.DS_Store

@@ -88,7 +88,7 @@ async def generate_quiz_endpoint(files: List[UploadFile] = File(...)):
                 combined_content.append(f"[Image Source: {file.filename}]")
 
         # 2. Pass to Gemini
-        quiz_data = generate_quiz_json(combined_content, num_questions=5)
+        quiz_data = generate_quiz_json(combined_content, num_questions=20)
         
         return {"status": "success", "quiz_data": quiz_data}
     

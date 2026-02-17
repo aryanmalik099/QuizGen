@@ -92,8 +92,8 @@ def json_to_forms_requests(quiz_data):
     for index, q in enumerate(quiz_data):
         options = q.get("options", [])
         if len(options) < 2:
+            # Skip malformed questions instead of crashing the entire publish flow.
             continue
-
         correct_answer_text = q.get("correct_answer", "")
         final_correct_value = options[0]
 

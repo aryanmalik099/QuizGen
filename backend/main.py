@@ -80,7 +80,7 @@ def create_quiz(title, questions):
         form_service, drive_service = get_authenticated_services()
 
         # --- STRATEGY CHANGE: DRIVE-FIRST CREATION ---
-        # Instead of creating in root and moving (which causes 500 errors),
+        # Instead of creating in root (which causes 500 errors),
         # we create the file DIRECTLY inside the folder using the Drive API.
         print(f"🤖 Creating file directly in folder {FOLDER_ID}...")
         
@@ -90,7 +90,7 @@ def create_quiz(title, questions):
             'parents': [FOLDER_ID] 
         }
         
-        # 1. Create Blank Form File
+        # 1. Create Blank Form File via Drive API (This avoids the 500 error)
         file = drive_service.files().create(body=file_metadata, fields='id').execute()
         form_id = file.get('id')
         edit_url = f"https://docs.google.com/forms/d/{form_id}/edit"
@@ -100,7 +100,7 @@ def create_quiz(title, questions):
         print(f"📝 Populating form content...")
         update_requests = []
         
-        # Set Title (Since Drive API only sets the filename)
+        # Set Title
         update_requests.append({
             "updateFormInfo": {
                 "info": {
@@ -134,5 +134,4 @@ def create_quiz(title, questions):
 
     except Exception as e:
         print(f"❌ Error in create_quiz: {e}")
-        # If this fails with 404, it means the Folder ID is wrong or not shared.
         raise e

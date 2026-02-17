@@ -113,6 +113,12 @@ def create_quiz(title, questions):
             removeParents=previous_parents,
             fields='id, parents'
         ).execute()
+
+        print(f"🤝 Sharing with {USER_EMAIL}...")
+        drive_service.permissions().create(
+            fileId=form_id,
+            body={"type": "user", "role": "writer", "emailAddress": USER_EMAIL}
+        ).execute()
         
         # Step C: Add Questions to the Form
         if questions:

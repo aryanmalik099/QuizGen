@@ -85,7 +85,7 @@ def main():
     
     print("Step 2: Generating Questions with AI...")
     # We ask for a small batch to ensure speed/accuracy
-    quiz_data = generate_quiz_json(text, num_questions=5) 
+    quiz_data = generate_quiz_json(text, num_questions=20) 
     
     if not quiz_data:
         print("❌ AI failed to generate questions.")

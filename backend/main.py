@@ -1,16 +1,35 @@
 import os
 import json
-from quiz_engine import extract_text_from_pdf, generate_quiz_json
-from create_quiz import get_credentials
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+# --- CONFIGURATION ---
+SCOPES = [
+    "https://www.googleapis.com/auth/forms.body",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.file"
+]
+
+# ⚠️ REPLACE WITH YOUR EMAIL
+USER_EMAIL = "utkarshmalik088@gmail.com"
+FOLDER_ID = "1vmg5rrYVFu1OROeEu9stSgqfwy0QIJ0K"
+
+SERVICE_ACCOUNT_FILE = "service_account.json"
+
+def get_authenticated_services():
+    if not os.path.exists(SERVICE_ACCOUNT_FILE):
+        raise FileNotFoundError(f"CRITICAL: {SERVICE_ACCOUNT_FILE} not found.")
+
+    creds = service_account.Credentials.from_service_account_file(
+        SERVICE_ACCOUNT_FILE, scopes=SCOPES
+    )
+    return build("forms", "v1", credentials=creds), build("drive", "v3", credentials=creds)
 
 def json_to_forms_requests(quiz_data):
-    """
-    Converts AI JSON into Google Forms API format with SAFETY CHECKS.
-    """
     requests = []
     
-    # 1. Set Quiz Settings (Make it a graded quiz)
+    # 1. Turn on Quiz Mode
     requests.append({
         "updateSettings": {
             "settings": {"quizSettings": {"isQuiz": True}},
@@ -18,31 +37,18 @@ def json_to_forms_requests(quiz_data):
         }
     })
 
-    # 2. Add Questions
+    # 2. Create Questions
     for index, q in enumerate(quiz_data):
         options = q.get("options", [])
-        raw_correct = q.get("correct_answer", "")
+        correct_answer_text = q.get("correct_answer", "")
         
-        # --- THE FIX: SAFETY MATCHING ---
-        # Google requires the correct answer to be an EXACT byte-for-byte string match.
-        # We try to find the best match from the options list.
+        final_correct_value = options[0] if options else ""
+        for opt in options:
+            if opt.strip().lower() == correct_answer_text.strip().lower():
+                final_correct_value = opt
+                break
         
-        final_correct_answer = options[0] # Default to Option A if match fails (prevents crash)
-        
-        if raw_correct in options:
-            # Perfect match found
-            final_correct_answer = raw_correct
-        else:
-            # Fuzzy match: Try ignoring case or whitespace
-            print(f"⚠️ Warning: Exact match not found for Q{index+1}. Fuzzy matching '{raw_correct}'...")
-            for opt in options:
-                if raw_correct.strip().lower() == opt.strip().lower():
-                    final_correct_answer = opt
-                    break
-        # --------------------------------
-
-        # Create the question object
-        question_item = {
+        new_question = {
             "createItem": {
                 "item": {
                     "title": q["question"],
@@ -52,10 +58,8 @@ def json_to_forms_requests(quiz_data):
                             "grading": {
                                 "pointValue": 1,
                                 "correctAnswers": {
-                                    "answers": [{"value": final_correct_answer}]
-                                },
-                                "whenRight": {"text": "Correct!"},
-                                "whenWrong": {"text": f"Explanation: {q.get('explanation', '')}"}
+                                    "answers": [{"value": final_correct_value}]
+                                }
                             },
                             "choiceQuestion": {
                                 "type": "RADIO",
@@ -68,60 +72,67 @@ def json_to_forms_requests(quiz_data):
                 "location": {"index": index}
             }
         }
-        requests.append(question_item)
-            
+        requests.append(new_question)
     return requests
 
-def main():
-    # 1. Get Input
-    pdf_path = "notes.pdf"
-    if not os.path.exists(pdf_path):
-        print("❌ Error: 'notes.pdf' not found. Please add a PDF file.")
-        return
-
-    # 2. Extract & Generate (The Brain)
-    print("Step 1: Reading PDF...")
-    text = extract_text_from_pdf(pdf_path)
-    
-    print("Step 2: Generating Questions with AI...")
-    # We ask for a small batch to ensure speed/accuracy
-    quiz_data = generate_quiz_json(text, num_questions=20) 
-    
-    if not quiz_data:
-        print("❌ AI failed to generate questions.")
-        return
-
-    # 3. Create Form (The Hands)
-    print("Step 3: Creating Google Form...")
+def create_quiz(title, questions):
     try:
-        creds = get_credentials()
-        form_service = build("forms", "v1", credentials=creds)
+        form_service, drive_service = get_authenticated_services()
 
-        # Create blank form
-        form_info = {
-            "info": {
-                "title": "AI Generated Quiz",
-                "documentTitle": "Notes Quiz",
-            }
+        # --- STRATEGY CHANGE: DRIVE-FIRST CREATION ---
+        # Instead of creating in root and moving (which causes 500 errors),
+        # we create the file DIRECTLY inside the folder using the Drive API.
+        print(f"🤖 Creating file directly in folder {FOLDER_ID}...")
+        
+        file_metadata = {
+            'name': title,
+            'mimeType': 'application/vnd.google-apps.form',
+            'parents': [FOLDER_ID] 
         }
-        form = form_service.forms().create(body=form_info).execute()
-        form_id = form["formId"]
-        form_url = form["responderUri"]
+        
+        # 1. Create Blank Form File
+        file = drive_service.files().create(body=file_metadata, fields='id').execute()
+        form_id = file.get('id')
+        edit_url = f"https://docs.google.com/forms/d/{form_id}/edit"
+        print(f"✅ File created! ID: {form_id}")
 
-        # 4. Populate Form
-        print("Step 4: Adding Questions...")
-        update_requests = json_to_forms_requests(quiz_data)
-        form_service.forms().batchUpdate(formId=form_id, body={"requests": update_requests}).execute()
+        # 2. Populate Title and Questions via Forms API
+        print(f"📝 Populating form content...")
+        update_requests = []
+        
+        # Set Title (Since Drive API only sets the filename)
+        update_requests.append({
+            "updateFormInfo": {
+                "info": {
+                    "title": title,
+                    "documentTitle": title
+                },
+                "updateMask": "title,documentTitle"
+            }
+        })
+        
+        # Add Questions
+        if questions:
+            question_requests = json_to_forms_requests(questions)
+            update_requests.extend(question_requests)
 
-        print("\n" + "="*40)
-        print(f"✅ SUCCESS! Quiz Ready: {form_url}")
-        print("="*40)
+        # Execute all updates
+        form_service.forms().batchUpdate(
+            formId=form_id, 
+            body={"requests": update_requests}
+        ).execute()
+
+        # 3. Share with User
+        print(f"🤝 Sharing with {USER_EMAIL}...")
+        drive_service.permissions().create(
+            fileId=form_id,
+            body={"type": "user", "role": "writer", "emailAddress": USER_EMAIL}
+        ).execute()
+            
+        print("✅ Quiz created successfully!")
+        return edit_url
 
     except Exception as e:
-        print(f"\n❌ CRITICAL ERROR: {e}")
-        # Print the data to see what went wrong
-        print("Debug Data that failed:")
-        print(json.dumps(quiz_data, indent=2))
-
-if __name__ == "__main__":
-    main()
+        print(f"❌ Error in create_quiz: {e}")
+        # If this fails with 404, it means the Folder ID is wrong or not shared.
+        raise e

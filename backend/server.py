@@ -13,6 +13,40 @@ from create_quiz import create_quiz
 
 app = FastAPI()
 
+
+def sanitize_questions(raw_questions):
+    """Normalize client payload so publish never crashes on malformed questions."""
+    sanitized = []
+
+    for index, question in enumerate(raw_questions):
+        if not isinstance(question, dict):
+            raise HTTPException(status_code=400, detail=f"Question {index + 1} is invalid.")
+
+        title = str(question.get("question", "")).strip()
+        options = [str(option).strip() for option in question.get("options", []) if str(option).strip()]
+
+        if not title:
+            raise HTTPException(status_code=400, detail=f"Question {index + 1} is missing text.")
+        if len(options) < 2:
+            raise HTTPException(status_code=400, detail=f"Question {index + 1} needs at least 2 options.")
+
+        correct_answer = str(question.get("correct_answer", "")).strip()
+        if correct_answer not in options:
+            correct_answer = options[0]
+
+        sanitized.append(
+            {
+                "question": title,
+                "options": options,
+                "correct_answer": correct_answer,
+            }
+        )
+
+    if not sanitized:
+        raise HTTPException(status_code=400, detail="At least one valid question is required.")
+
+    return sanitized
+
 # Allow CORS for Vercel/Localhost
 app.add_middleware(
     CORSMiddleware,
@@ -54,7 +88,7 @@ async def generate_quiz_endpoint(files: List[UploadFile] = File(...)):
                 combined_content.append(f"[Image Source: {file.filename}]")
 
         # 2. Pass to Gemini
-        quiz_data = generate_quiz_json(combined_content, num_questions=5)
+        quiz_data = generate_quiz_json(combined_content, num_questions=20)
         
         return {"status": "success", "quiz_data": quiz_data}
     
@@ -65,8 +99,8 @@ async def generate_quiz_endpoint(files: List[UploadFile] = File(...)):
 @app.post("/publish-quiz")
 async def publish_quiz_endpoint(quiz_data: dict):
     # ✅ SIMPLIFIED: The Robot handles all the auth logic now
-    questions = quiz_data.get("questions", [])
-    title = quiz_data.get("title", "AI Generated Quiz")
+    title = str(quiz_data.get("title", "AI Generated Quiz")).strip() or "AI Generated Quiz"
+    questions = sanitize_questions(quiz_data.get("questions", []))
     
     try:
         # This function now does: Auth -> Create Form -> Share with You -> Add Questions

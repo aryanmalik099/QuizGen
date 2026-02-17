@@ -51,6 +51,9 @@ def json_to_forms_requests(quiz_data):
     # 2. Create Questions
     for index, q in enumerate(quiz_data):
         options = q.get("options", [])
+        if len(options) < 2:
+            # Skip malformed questions instead of crashing the entire publish flow.
+            continue
         correct_answer_text = q.get("correct_answer", "")
         
         # Logic: Find exact match for correct answer

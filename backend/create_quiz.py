@@ -15,7 +15,7 @@ SCOPES = [
 # 2. YOUR EMAIL: The robot needs to know who to share the form with.
 # ⚠️ REPLACE THIS WITH YOUR ACTUAL EMAIL ADDRESS
 USER_EMAIL = "utkarshmalik088@gmail.com"  # Example: "john.doe@gmail.com"
-FOLDER_ID = "https://drive.google.com/drive/folders/1vmg5rrYVFu1OROeEu9stSgqfwy0QIJ0K"
+FOLDER_ID = "1vmg5rrYVFu1OROeEu9stSgqfwy0QIJ0K"
 
 SERVICE_ACCOUNT_FILE = "service_account.json"
 
@@ -100,6 +100,7 @@ def create_quiz(title, questions):
         form_body = {"info": {"title": title, "documentTitle": title}}
         form = form_service.forms().create(body=form_body).execute()
         form_id = form["formId"]
+        edit_url = f"https://docs.google.com/forms/d/{form_id}/edit"
 
         # B. MOVE it to the specific folder (This fixes the 500 error)
         # We move it from 'root' to your shared folder

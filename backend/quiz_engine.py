@@ -56,7 +56,7 @@ def extract_content_smart(pdf_path, max_pages=20):
             
     return content_parts
 
-def generate_quiz_json(content, num_questions=5):
+def generate_quiz_json(content, num_questions=20):
     model = get_model()
     
     print("🧠 Sending data to Gemini... thinking...")

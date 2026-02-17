@@ -12,9 +12,9 @@ SCOPES = [
 ]
 
 # Optional env-based settings
-USER_EMAIL = os.getenv("QUIZGEN_USER_EMAIL", "").strip()
-FOLDER_ID = os.getenv("QUIZGEN_FOLDER_ID", "").strip()
-SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json").strip()
+USER_EMAIL = os.getenv("QUIZGEN_USER_EMAIL", "utkarshmalik088@gmail.com")
+FOLDER_ID = os.getenv("QUIZGEN_FOLDER_ID", "1vmg5rrYVFu1OROeEu9stSgqfwy0QIJ0K")
+SERVICE_ACCOUNT_FILE = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
 
 
 def _oauth_credentials_from_env():
@@ -47,8 +47,8 @@ def _service_account_credentials():
     if not os.path.exists(SERVICE_ACCOUNT_FILE):
         raise FileNotFoundError(
             "Missing OAuth env vars and service account file. "
-            "Set GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET, and GOOGLE_OAUTH_REFRESH_TOKEN "
-            f"or provide GOOGLE_SERVICE_ACCOUNT_FILE (current: {SERVICE_ACCOUNT_FILE})."
+            "Set GOOGLE_OAUTH_CLIENT_ID/GOOGLE_OAUTH_CLIENT_SECRET/GOOGLE_OAUTH_REFRESH_TOKEN "
+            f"or provide {SERVICE_ACCOUNT_FILE}."
         )
 
     return service_account.Credentials.from_service_account_file(
@@ -92,8 +92,8 @@ def json_to_forms_requests(quiz_data):
     for index, q in enumerate(quiz_data):
         options = q.get("options", [])
         if len(options) < 2:
+            # Skip malformed questions instead of crashing the entire publish flow.
             continue
-
         correct_answer_text = q.get("correct_answer", "")
         final_correct_value = options[0]
 

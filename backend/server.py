@@ -110,7 +110,8 @@ async def auth_callback(request: Request):
         request.session['token'] = token 
         
         # Redirect back to Frontend
-        return RedirectResponse(url='http://localhost:5173') 
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+        return RedirectResponse(url=frontend_url)
     except Exception as e:
         return {"error": f"Auth failed: {str(e)}"}
 

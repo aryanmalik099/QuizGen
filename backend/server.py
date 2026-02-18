@@ -8,6 +8,7 @@ from PIL import Image
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from starlette.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv

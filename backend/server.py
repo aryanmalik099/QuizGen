@@ -23,28 +23,27 @@ app = FastAPI()
 
 # --- 1. CONFIGURATION & MIDDLEWARE ---
 
-# SESSION MIDDLEWARE (Required for Login)
-# ⚠️ Ensure SECRET_KEY is in your .env, or it defaults to "unsafe-secret"
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
+
 app.add_middleware(
     SessionMiddleware, 
-    secret_key=os.getenv("SECRET_KEY", "unsafe-secret"),
-    same_site="none",
-    https_only=True
+    secret_key=os.getenv("SECRET_KEY", "random_string"),
+    same_site="none",      
+    https_only=True        
 )
 
-# CORS MIDDLEWARE (Required for Frontend to talk to Backend)
-# ⚠️ strict allow_origins is required when allow_credentials=True
 origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:8000",
-    "https://quiz-gen-sable.vercel.app"
+    "https://quizgen-web.vercel.app", 
+    os.getenv("FRONTEND_URL")         
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins, 
-    allow_credentials=True, # This MUST be True for Cookies/Login to work
+    allow_credentials=True, 
     allow_methods=["*"],
     allow_headers=["*"],
 )

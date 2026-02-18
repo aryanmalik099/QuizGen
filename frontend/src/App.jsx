@@ -1,9 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Upload, FileText, CheckCircle, ExternalLink, Loader2, 
-  Save, Edit3, Trash2, Plus, Sparkles, X, Image as ImageIcon, GripVertical 
+  Trash2, Plus, Sparkles, X, Image as ImageIcon, GripVertical, LogOut, User 
 } from 'lucide-react';
+
+// ⚠️ CRITICAL: This allows the Frontend to send/receive the "Login Cookie"
+axios.defaults.withCredentials = true;
 
 export default function App() {
   const [files, setFiles] = useState([]);
@@ -12,12 +15,41 @@ export default function App() {
   const [quizData, setQuizData] = useState([]);
   const [formUrl, setFormUrl] = useState("");
   const [title, setTitle] = useState("Untitled Quiz");
+  
+  // New State for User
+  const [user, setUser] = useState(null);
 
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
   // Drag and Drop Refs
   const dragItem = useRef();
   const dragOverItem = useRef();
+
+  // --- 0. AUTH CHECK ON LOAD ---
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/user`);
+      if (res.data) {
+        setUser(res.data);
+      }
+    } catch (err) {
+      console.log("Not logged in");
+    }
+  };
+
+  const handleLogin = () => {
+    // Redirect the browser to the Backend's Login endpoint
+    window.location.href =(`${API_URL}/login`);
+  };
+
+  const handleLogout = async () => {
+    await axios.get(`${API_URL}/logout`);
+    setUser(null);
+  };
 
   // --- 1. FILE MANAGEMENT ---
   const handleFileChange = (e) => {
@@ -40,7 +72,6 @@ export default function App() {
     files.forEach(f => formData.append("files", f));
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const res = await axios.post(`${API_URL}/generate-quiz`, formData);
       const clean = res.data.quiz_data.map(q => {
         const match = q.options.find(o => o.toLowerCase().trim() === q.correct_answer.toLowerCase().trim());
@@ -56,15 +87,9 @@ export default function App() {
     }
   };
 
-  // --- 3. REORDERING LOGIC (Native DnD) ---
-  const handleDragStart = (e, position) => {
-    dragItem.current = position;
-  };
-
-  const handleDragEnter = (e, position) => {
-    dragOverItem.current = position;
-  };
-
+  // --- 3. REORDERING LOGIC ---
+  const handleDragStart = (e, position) => { dragItem.current = position; };
+  const handleDragEnter = (e, position) => { dragOverItem.current = position; };
   const handleDrop = () => {
     const copyListItems = [...quizData];
     const dragItemContent = copyListItems[dragItem.current];
@@ -77,50 +102,24 @@ export default function App() {
 
   // --- 4. EDITOR ACTIONS ---
   const handlePublish = async (e) => {
-  if (e) e.preventDefault(); // Stop page reload
-  
-  console.log("--------------------------------");
-  console.log("🟢 STEP 1: Function Started");
-  
-  // CHECK 1: Is axios imported?
-  try {
-    console.log("🟢 STEP 2: Axios is", axios ? "Working" : "MISSING");
-  } catch (err) {
-    console.error("🔴 CRASH AT STEP 2: Axios is not imported!");
-    alert("CRASH: Add 'import axios from \"axios\";' to the top of the file!");
-    return;
-  }
-
-  // CHECK 2: Is the data ready?
-  console.log("🟢 STEP 3: Checking Data...");
-  console.log("   - Title:", title);
-  console.log("   - API_URL:", API_URL);
-  console.log("   - QuizData Length:", quizData ? quizData.length : "UNDEFINED");
-
-  if (!quizData || quizData.length === 0) {
-    console.error("🔴 CRASH AT STEP 3: No questions to publish!");
-    alert("Error: The quiz is empty. Add some questions first.");
-    return;
-  }
-
-  // CHECK 3: The Network Request
-  console.log("🟢 STEP 4: Attempting Network Request to:", `${API_URL}/publish-quiz`);
-  
-  setLoading(true);
-  try {
-    const payload = { title: title || "Untitled Quiz", questions: quizData };
-    const res = await axios.post(`${API_URL}/publish-quiz`, payload);
+    if (e) e.preventDefault();
     
-    console.log("🟢 STEP 5: Success!", res.data);
-    setFormUrl(res.data.form_url);
-    setStep(3);
-  } catch (err) {
-    console.error("🔴 CRASH AT STEP 5 (Network Error):", err);
-    alert(`Network Error: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
+    if (!user) {
+        if(!confirm("You are not logged in. The quiz will be created by the Robot. Continue?")) return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = { title: title || "Untitled Quiz", questions: quizData };
+      const res = await axios.post(`${API_URL}/publish-quiz`, payload);
+      setFormUrl(res.data.form_url);
+      setStep(3);
+    } catch (err) {
+      alert(`Network Error: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const updateQ = (i, field, val) => {
     const copy = [...quizData];
@@ -140,13 +139,43 @@ export default function App() {
       {/* Navbar */}
       <nav className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
-          <div className="flex items-center gap-2 font-bold text-indigo-600">
+          <div className="flex items-center gap-2 font-bold text-indigo-600 cursor-pointer" onClick={() => window.location.reload()}>
             <Sparkles className="h-6 w-6" /> <span className="text-xl tracking-tight text-slate-900">QuizGen AI</span>
           </div>
-          <div className="flex gap-4 text-xs font-bold uppercase tracking-widest text-slate-400">
-            {['Upload', 'Edit', 'Done'].map((s, i) => (
-              <span key={s} className={step === i + 1 ? "text-indigo-600" : ""}>{i + 1}. {s}</span>
-            ))}
+          
+          <div className="flex items-center gap-6">
+            <div className="hidden md:flex gap-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+                {['Upload', 'Edit', 'Done'].map((s, i) => (
+                <span key={s} className={step === i + 1 ? "text-indigo-600" : ""}>{i + 1}. {s}</span>
+                ))}
+            </div>
+
+            {/* AUTH BUTTONS */}
+            {user ? (
+                <div className="flex items-center gap-3 pl-6 border-l border-slate-200">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-xs font-bold text-slate-900">{user.name}</p>
+                        <p className="text-[10px] text-slate-400">{user.email}</p>
+                    </div>
+                    {user.picture ? (
+                        <img src={user.picture} alt="Profile" className="h-8 w-8 rounded-full border border-slate-200" />
+                    ) : (
+                        <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                            {user.name?.[0]}
+                        </div>
+                    )}
+                    <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition" title="Logout">
+                        <LogOut className="h-4 w-4" />
+                    </button>
+                </div>
+            ) : (
+                <button 
+                    onClick={handleLogin}
+                    className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 transition shadow-lg shadow-slate-200"
+                >
+                    <User className="h-4 w-4" /> Sign In
+                </button>
+            )}
           </div>
         </div>
       </nav>
@@ -210,14 +239,13 @@ export default function App() {
               {quizData.map((q, qI) => (
                 <div 
                   key={qI} 
-                  draggable // The whole card is still draggable
+                  draggable
                   onDragStart={(e) => handleDragStart(e, qI)}
                   onDragEnter={(e) => handleDragEnter(e, qI)}
                   onDragEnd={handleDrop}
-                  onDragOver={(e) => e.preventDefault()} // Crucial for desktop support
+                  onDragOver={(e) => e.preventDefault()}
                   className="group relative rounded-3xl border border-slate-100 bg-white p-6 shadow-sm transition-all hover:shadow-md cursor-grab active:cursor-grabbing hover:border-indigo-200"
                 >
-                  {/* The Handle: Visual cue that this is draggable */}
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-400 transition">
                     <GripVertical className="h-6 w-6" />
                   </div>
@@ -235,7 +263,6 @@ export default function App() {
                       </button>
                     </div>
 
-                    {/* Adding 'select-none' prevents the cursor from trying to highlight text while dragging */}
                     <textarea 
                       value={q.question} 
                       onChange={(e) => updateQ(qI, 'question', e.target.value)} 
@@ -270,7 +297,7 @@ export default function App() {
               ))}
             </div>
 
-            <button onClick={() => setQuizData([...quizData, { question: "Add your question here...", options: ["Option A", "Option B", "Option C", "Option D"], correct_answer: "Option A" }])} className="w-full rounded-2xl border-2 border-dashed border-slate-200 py-5 font-bold text-slate-400 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center justify-center gap-2">
+            <button onClick={() => setQuizData([...quizData, { question: "New Question", options: ["A", "B"], correct_answer: "A" }])} className="w-full rounded-2xl border-2 border-dashed border-slate-200 py-5 font-bold text-slate-400 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center justify-center gap-2">
               <Plus className="h-5 w-5" /> Add New Question
             </button>
           </div>

@@ -27,7 +27,9 @@ app = FastAPI()
 # ⚠️ Ensure SECRET_KEY is in your .env, or it defaults to "unsafe-secret"
 app.add_middleware(
     SessionMiddleware, 
-    secret_key=os.getenv("SECRET_KEY", "unsafe-secret")
+    secret_key=os.getenv("SECRET_KEY", "unsafe-secret"),
+    same_site="none",
+    https_only=True
 )
 
 # CORS MIDDLEWARE (Required for Frontend to talk to Backend)

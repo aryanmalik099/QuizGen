@@ -92,6 +92,11 @@ def sanitize_questions(raw_questions):
 
     return sanitized
 
+
+@app.get("/")
+def health_check():
+    return {"status": "awake", "message": "I am ready to work!"}
+
 # --- 3. AUTH ROUTES ---
 
 @app.get("/login")

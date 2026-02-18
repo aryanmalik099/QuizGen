@@ -96,8 +96,9 @@ def sanitize_questions(raw_questions):
 
 @app.get("/login")
 async def login(request: Request):
-    # Sends user to Google
-    redirect_uri = "http://localhost:8000/auth/callback" 
+    current_backend_url = os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
+    redirect_uri = f"{current_backend_url}/auth/callback"
+    print(f"🔀 Redirecting Google to: {redirect_uri}")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 @app.get("/auth/callback")
